@@ -3,7 +3,7 @@
 Cargo workspace for the Orogen's chain pallets and the runtime
 composition that wires them together.
 
-This repository is the **on-chain** half of the network (per master plan §1.1).
+This repository is the **on-chain** half of the network.
 Worker, gateway, validator, wallet, explorer and CDN code lives in sibling
 repos; this crate only owns FRAME pallets and runtime composition.
 
