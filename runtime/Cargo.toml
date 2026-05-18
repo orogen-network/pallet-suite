@@ -57,8 +57,14 @@ substrate-wasm-builder = { workspace = true, optional = true }
 # By default we build the production-shaped runtime *without* `pallet-sudo`.
 # Use `--features dev-runtime` to include sudo for local development chains.
 default = ["std"]
-dev-runtime = ["pallet-sudo", "pallet-sudo/std"]
+# `dev-runtime` toggles in `pallet-sudo`. Its std bits are activated only
+# when the host (`std`) feature is also on, via the optional `?/std` syntax
+# in the `std` feature list below — otherwise enabling `dev-runtime` on a
+# wasm32 build (substrate-wasm-builder always compiles no_std) would force
+# pallet-sudo into std mode and fail to compile.
+dev-runtime = ["pallet-sudo"]
 std = [
+    "pallet-sudo?/std",
     "parity-scale-codec/std",
     "scale-info/std",
     "frame-support/std",
