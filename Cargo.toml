@@ -1,0 +1,83 @@
+[workspace]
+resolver = "2"
+members = [
+    "runtime",
+    "pallets/model-registry",
+    "pallets/operator-stake",
+    "pallets/job-market",
+    "pallets/yuma-consensus",
+    "pallets/bme",
+    "pallets/slashing",
+    "pallets/pouw-mint",
+    "pallets/attestation-registry",
+    "pallets/oracle-twap",
+    "pallets/nonce-vault",
+    "pallets/treasury-ext",
+]
+
+[workspace.package]
+authors = ["Orogen"]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/orogen-network/pallet-suite"
+version = "0.1.0"
+
+[workspace.dependencies]
+# SCALE codec
+parity-scale-codec = { version = "3.7", default-features = false, features = ["derive"] }
+scale-info = { version = "2.11", default-features = false, features = ["derive"] }
+
+# Substrate primitives (latest stable on crates.io, May 2026)
+frame-support = { version = "47.0.0", default-features = false }
+frame-system = { version = "47.0.0", default-features = false }
+frame-executive = { version = "47.0.0", default-features = false }
+sp-core = { version = "41.0.0", default-features = false }
+sp-io = { version = "46.0.0", default-features = false }
+sp-runtime = { version = "47.0.0", default-features = false }
+sp-std = { version = "14.0.0", default-features = false }
+sp-api = { version = "42.0.0", default-features = false }
+sp-block-builder = { version = "42.0.0", default-features = false }
+sp-consensus-aura = { version = "0.48.0", default-features = false }
+sp-consensus-grandpa = { version = "29.0.0", default-features = false }
+sp-genesis-builder = { version = "0.23.0", default-features = false }
+sp-inherents = { version = "42.0.0", default-features = false }
+sp-offchain = { version = "42.0.0", default-features = false }
+sp-session = { version = "44.0.0", default-features = false }
+sp-transaction-pool = { version = "42.0.0", default-features = false }
+sp-version = { version = "45.0.0", default-features = false }
+frame-system-rpc-runtime-api = { version = "42.0.0", default-features = false }
+
+# Substrate FRAME utility pallets used in the composed runtime.
+pallet-aura = { version = "46.0.0", default-features = false }
+pallet-balances = { version = "48.0.0", default-features = false }
+pallet-grandpa = { version = "47.0.0", default-features = false }
+pallet-sudo = { version = "47.0.0", default-features = false }
+pallet-timestamp = { version = "46.0.0", default-features = false }
+pallet-transaction-payment = { version = "47.0.0", default-features = false }
+pallet-transaction-payment-rpc-runtime-api = { version = "47.0.0", default-features = false }
+
+# Pallets (intra-workspace)
+pallet-model-registry = { path = "pallets/model-registry", default-features = false }
+pallet-operator-stake = { path = "pallets/operator-stake", default-features = false }
+pallet-job-market = { path = "pallets/job-market", default-features = false }
+pallet-yuma-consensus = { path = "pallets/yuma-consensus", default-features = false }
+pallet-bme = { path = "pallets/bme", default-features = false }
+pallet-slashing = { path = "pallets/slashing", default-features = false }
+pallet-pouw-mint = { path = "pallets/pouw-mint", default-features = false }
+pallet-attestation-registry = { path = "pallets/attestation-registry", default-features = false }
+pallet-oracle-twap = { path = "pallets/oracle-twap", default-features = false }
+pallet-nonce-vault = { path = "pallets/nonce-vault", default-features = false }
+pallet-treasury-ext = { path = "pallets/treasury-ext", default-features = false }
+
+# WASM runtime builder (build-dependency)
+substrate-wasm-builder = "33.0.0"
+
+[profile.release]
+opt-level = 3
+lto = "thin"
+codegen-units = 1
+panic = "unwind"
+
+[profile.dev]
+opt-level = 0
+debug = true

@@ -1,0 +1,100 @@
+[package]
+name = "orogen-runtime"
+version.workspace = true
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Composed runtime for the Orogen chain, wiring all pallets."
+build = "build.rs"
+
+[dependencies]
+parity-scale-codec = { workspace = true }
+scale-info = { workspace = true }
+frame-support = { workspace = true }
+frame-system = { workspace = true }
+frame-executive = { workspace = true }
+sp-core = { workspace = true }
+sp-io = { workspace = true }
+sp-runtime = { workspace = true }
+sp-std = { workspace = true }
+sp-api = { workspace = true }
+sp-block-builder = { workspace = true }
+sp-consensus-aura = { workspace = true }
+sp-consensus-grandpa = { workspace = true }
+sp-genesis-builder = { workspace = true }
+sp-inherents = { workspace = true }
+sp-offchain = { workspace = true }
+sp-session = { workspace = true }
+sp-transaction-pool = { workspace = true }
+sp-version = { workspace = true }
+frame-system-rpc-runtime-api = { workspace = true }
+
+pallet-aura = { workspace = true }
+pallet-balances = { workspace = true }
+pallet-grandpa = { workspace = true }
+pallet-sudo = { workspace = true, optional = true }
+pallet-timestamp = { workspace = true }
+pallet-transaction-payment = { workspace = true }
+pallet-transaction-payment-rpc-runtime-api = { workspace = true }
+
+pallet-model-registry = { workspace = true }
+pallet-operator-stake = { workspace = true }
+pallet-job-market = { workspace = true }
+pallet-yuma-consensus = { workspace = true }
+pallet-bme = { workspace = true }
+pallet-slashing = { workspace = true }
+pallet-pouw-mint = { workspace = true }
+pallet-attestation-registry = { workspace = true }
+pallet-oracle-twap = { workspace = true }
+pallet-nonce-vault = { workspace = true }
+pallet-treasury-ext = { workspace = true }
+
+[build-dependencies]
+substrate-wasm-builder = { workspace = true, optional = true }
+
+[features]
+# By default we build the production-shaped runtime *without* `pallet-sudo`.
+# Use `--features dev-runtime` to include sudo for local development chains.
+default = ["std"]
+dev-runtime = ["pallet-sudo", "pallet-sudo/std"]
+std = [
+    "parity-scale-codec/std",
+    "scale-info/std",
+    "frame-support/std",
+    "frame-system/std",
+    "frame-executive/std",
+    "sp-core/std",
+    "sp-io/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "sp-api/std",
+    "sp-block-builder/std",
+    "sp-consensus-aura/std",
+    "sp-consensus-grandpa/std",
+    "sp-genesis-builder/std",
+    "sp-inherents/std",
+    "sp-offchain/std",
+    "sp-session/std",
+    "sp-transaction-pool/std",
+    "sp-version/std",
+    "frame-system-rpc-runtime-api/std",
+    "pallet-aura/std",
+    "pallet-balances/std",
+    "pallet-grandpa/std",
+    "pallet-timestamp/std",
+    "pallet-transaction-payment/std",
+    "pallet-transaction-payment-rpc-runtime-api/std",
+    "pallet-model-registry/std",
+    "pallet-operator-stake/std",
+    "pallet-job-market/std",
+    "pallet-yuma-consensus/std",
+    "pallet-bme/std",
+    "pallet-slashing/std",
+    "pallet-pouw-mint/std",
+    "pallet-attestation-registry/std",
+    "pallet-oracle-twap/std",
+    "pallet-nonce-vault/std",
+    "pallet-treasury-ext/std",
+    "substrate-wasm-builder",
+]
