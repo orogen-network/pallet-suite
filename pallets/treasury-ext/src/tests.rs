@@ -10,17 +10,32 @@ fn proposal_executes_at_threshold() {
             42,
             1_000,
         ));
-        assert_eq!(Proposals::<Test>::get(0).unwrap().state, ProposalState::Pending);
+        assert_eq!(
+            Proposals::<Test>::get(0).unwrap().state,
+            ProposalState::Pending
+        );
         // Same account approving twice fails.
-        assert_ok!(crate::Pallet::<Test>::execute_spend(RuntimeOrigin::signed(2), 0));
+        assert_ok!(crate::Pallet::<Test>::execute_spend(
+            RuntimeOrigin::signed(2),
+            0
+        ));
         assert_noop!(
             crate::Pallet::<Test>::execute_spend(RuntimeOrigin::signed(2), 0),
             Error::<Test>::AlreadyApproved
         );
-        assert_eq!(Proposals::<Test>::get(0).unwrap().state, ProposalState::Pending);
+        assert_eq!(
+            Proposals::<Test>::get(0).unwrap().state,
+            ProposalState::Pending
+        );
         // A second distinct council member tips the proposal over threshold (2).
-        assert_ok!(crate::Pallet::<Test>::execute_spend(RuntimeOrigin::signed(3), 0));
-        assert_eq!(Proposals::<Test>::get(0).unwrap().state, ProposalState::Executed);
+        assert_ok!(crate::Pallet::<Test>::execute_spend(
+            RuntimeOrigin::signed(3),
+            0
+        ));
+        assert_eq!(
+            Proposals::<Test>::get(0).unwrap().state,
+            ProposalState::Executed
+        );
     });
 }
 

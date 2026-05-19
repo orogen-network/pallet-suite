@@ -32,9 +32,50 @@ pub mod pallet {
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
     use sp_core::H256;
+    use sp_runtime::traits::Saturating;
+
+    /// Economic slash hook implemented by the operator-stake pallet in the
+    /// runtime. It also freezes pending exposure so operators cannot exit
+    /// before a pending slash is resolved.
+    pub trait OperatorSlash<AccountId> {
+        fn freeze_pending(operator: &AccountId) -> DispatchResult;
+        fn release_pending(operator: &AccountId) -> DispatchResult;
+        fn apply_slash(
+            operator: &AccountId,
+            severity_bps: u16,
+            fault_code: FaultCode,
+        ) -> DispatchResult;
+    }
+
+    impl<AccountId> OperatorSlash<AccountId> for () {
+        fn freeze_pending(_operator: &AccountId) -> DispatchResult {
+            Ok(())
+        }
+        fn release_pending(_operator: &AccountId) -> DispatchResult {
+            Ok(())
+        }
+        fn apply_slash(
+            _operator: &AccountId,
+            _severity_bps: u16,
+            _fault_code: FaultCode,
+        ) -> DispatchResult {
+            Ok(())
+        }
+    }
 
     /// Fault codes mirrored from RFC-0005.
-    #[derive(Clone, Copy, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, PartialEq, Eq, Debug)]
+    #[derive(
+        Clone,
+        Copy,
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        MaxEncodedLen,
+        TypeInfo,
+        PartialEq,
+        Eq,
+        Debug,
+    )]
     pub enum FaultCode {
         WrongModel,
         WrongResponse,
@@ -68,7 +109,18 @@ pub mod pallet {
         }
     }
 
-    #[derive(Clone, Copy, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, PartialEq, Eq, Debug)]
+    #[derive(
+        Clone,
+        Copy,
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        MaxEncodedLen,
+        TypeInfo,
+        PartialEq,
+        Eq,
+        Debug,
+    )]
     pub enum SlashState {
         Pending,
         Disputed,
@@ -77,14 +129,36 @@ pub mod pallet {
         Finalized,
     }
 
-    #[derive(Clone, Copy, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, PartialEq, Eq, Debug)]
+    #[derive(
+        Clone,
+        Copy,
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        MaxEncodedLen,
+        TypeInfo,
+        PartialEq,
+        Eq,
+        Debug,
+    )]
     pub enum ArbitrationVote {
         Uphold,
         Overturn,
         Insufficient,
     }
 
-    #[derive(Clone, Copy, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, PartialEq, Eq, Debug)]
+    #[derive(
+        Clone,
+        Copy,
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        MaxEncodedLen,
+        TypeInfo,
+        PartialEq,
+        Eq,
+        Debug,
+    )]
     pub enum MultisigDecision {
         Uphold,
         Overturn,
@@ -107,8 +181,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        type RuntimeEvent: From<Event<Self>>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// Origin permitted to submit verified slashing evidence (typically
         /// `EnsureRoot` until a verifier pallet is wired in).
         type EvidenceOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -117,6 +190,10 @@ pub mod pallet {
         type PanelOrigin: EnsureOrigin<Self::RuntimeOrigin>;
         /// Weight info.
         type WeightInfo: WeightInfo;
+        /// Hook that applies and releases economic slash exposure.
+        type OperatorSlash: OperatorSlash<Self::AccountId>;
+        /// Blocks an operator has to dispute a pending slash before it can be finalized.
+        type DisputeWindow: Get<BlockNumberFor<Self>>;
     }
 
     #[pallet::pallet]
@@ -152,11 +229,25 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        SlashSubmitted { slash_id: u64, operator: T::AccountId, fault_code: FaultCode },
-        SlashDisputed { slash_id: u64 },
-        SlashArbitrated { slash_id: u64, vote: ArbitrationVote },
-        SlashRatified { slash_id: u64, decision: MultisigDecision },
-        SlashFinalized { slash_id: u64 },
+        SlashSubmitted {
+            slash_id: u64,
+            operator: T::AccountId,
+            fault_code: FaultCode,
+        },
+        SlashDisputed {
+            slash_id: u64,
+        },
+        SlashArbitrated {
+            slash_id: u64,
+            vote: ArbitrationVote,
+        },
+        SlashRatified {
+            slash_id: u64,
+            decision: MultisigDecision,
+        },
+        SlashFinalized {
+            slash_id: u64,
+        },
     }
 
     #[pallet::error]
@@ -164,6 +255,8 @@ pub mod pallet {
         UnknownSlash,
         BadState,
         PanelFull,
+        NotSlashOperator,
+        DisputeWindowOpen,
     }
 
     #[pallet::call]
@@ -179,6 +272,7 @@ pub mod pallet {
             evidence_hash: H256,
         ) -> DispatchResult {
             T::EvidenceOrigin::ensure_origin(origin)?;
+            T::OperatorSlash::freeze_pending(&operator)?;
             let slash_id = NextSlashId::<T>::mutate(|n| {
                 let id = *n;
                 *n = n.saturating_add(1);
@@ -196,7 +290,11 @@ pub mod pallet {
                     created_at: now,
                 },
             );
-            Self::deposit_event(Event::SlashSubmitted { slash_id, operator, fault_code });
+            Self::deposit_event(Event::SlashSubmitted {
+                slash_id,
+                operator,
+                fault_code,
+            });
             Ok(())
         }
 
@@ -209,10 +307,11 @@ pub mod pallet {
             slash_id: u64,
             _counter_evidence_hash: H256,
         ) -> DispatchResult {
-            let _ = ensure_signed(origin)?;
+            let who = ensure_signed(origin)?;
             Slashes::<T>::try_mutate(slash_id, |maybe| -> DispatchResult {
                 let s = maybe.as_mut().ok_or(Error::<T>::UnknownSlash)?;
                 ensure!(s.state == SlashState::Pending, Error::<T>::BadState);
+                ensure!(s.operator == who, Error::<T>::NotSlashOperator);
                 s.state = SlashState::Disputed;
                 Ok(())
             })?;
@@ -255,12 +354,21 @@ pub mod pallet {
             decision: MultisigDecision,
         ) -> DispatchResult {
             T::PanelOrigin::ensure_origin(origin)?;
+            let mut release_operator: Option<T::AccountId> = None;
             Slashes::<T>::try_mutate(slash_id, |maybe| -> DispatchResult {
                 let s = maybe.as_mut().ok_or(Error::<T>::UnknownSlash)?;
                 ensure!(s.state == SlashState::Arbitrated, Error::<T>::BadState);
-                s.state = SlashState::Ratified;
+                if decision == MultisigDecision::Overturn {
+                    release_operator = Some(s.operator.clone());
+                    s.state = SlashState::Finalized;
+                } else {
+                    s.state = SlashState::Ratified;
+                }
                 Ok(())
             })?;
+            if let Some(operator) = release_operator {
+                T::OperatorSlash::release_pending(&operator)?;
+            }
             Self::deposit_event(Event::SlashRatified { slash_id, decision });
             Ok(())
         }
@@ -271,17 +379,52 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::finalize_slash())]
         pub fn finalize_slash(origin: OriginFor<T>, slash_id: u64) -> DispatchResult {
             T::PanelOrigin::ensure_origin(origin)?;
+            let mut slash: Option<(T::AccountId, u16, FaultCode)> = None;
             Slashes::<T>::try_mutate(slash_id, |maybe| -> DispatchResult {
                 let s = maybe.as_mut().ok_or(Error::<T>::UnknownSlash)?;
                 ensure!(
                     matches!(s.state, SlashState::Pending | SlashState::Ratified),
                     Error::<T>::BadState
                 );
+                if s.state == SlashState::Pending {
+                    let now = frame_system::Pallet::<T>::block_number();
+                    let deadline = s.created_at.saturating_add(T::DisputeWindow::get());
+                    ensure!(now >= deadline, Error::<T>::DisputeWindowOpen);
+                }
+                slash = Some((s.operator.clone(), s.severity_bps, s.fault_code));
                 s.state = SlashState::Finalized;
                 Ok(())
             })?;
+            if let Some((operator, severity_bps, fault_code)) = slash {
+                T::OperatorSlash::apply_slash(&operator, severity_bps, fault_code)?;
+            }
             Self::deposit_event(Event::SlashFinalized { slash_id });
             Ok(())
         }
+    }
+}
+
+impl<T> pallet::OperatorSlash<T::AccountId> for pallet_operator_stake::Pallet<T>
+where
+    T: pallet_operator_stake::Config,
+{
+    fn freeze_pending(operator: &T::AccountId) -> frame_support::dispatch::DispatchResult {
+        pallet_operator_stake::Pallet::<T>::freeze_operator(operator)
+    }
+
+    fn release_pending(operator: &T::AccountId) -> frame_support::dispatch::DispatchResult {
+        pallet_operator_stake::Pallet::<T>::unfreeze_operator(operator)
+    }
+
+    fn apply_slash(
+        operator: &T::AccountId,
+        severity_bps: u16,
+        fault_code: pallet::FaultCode,
+    ) -> frame_support::dispatch::DispatchResult {
+        pallet_operator_stake::Pallet::<T>::slash_operator_by_bps(
+            operator,
+            severity_bps,
+            fault_code as u16,
+        )
     }
 }

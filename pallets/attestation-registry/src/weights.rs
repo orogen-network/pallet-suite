@@ -27,8 +27,7 @@ impl<T: Config> WeightInfo for SubstrateWeight<T> {
             .saturating_add(T::DbWeight::get().writes(1))
     }
     fn add_to_crl() -> Weight {
-        Weight::from_parts(30_000_000, 2048)
-            .saturating_add(T::DbWeight::get().writes(1))
+        Weight::from_parts(30_000_000, 2048).saturating_add(T::DbWeight::get().writes(1))
     }
 }
 

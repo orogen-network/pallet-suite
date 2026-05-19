@@ -50,8 +50,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        type RuntimeEvent: From<Event<Self>>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// The set of accounts that may propose / approve a spend (the
         /// foundation council). Membership is decided by the runtime; the
         /// pallet only checks `contains`.
@@ -83,8 +82,14 @@ pub mod pallet {
             beneficiary: T::AccountId,
             amount: Amount,
         },
-        Approved { proposal_id: u64, approver: T::AccountId, approvals: u32 },
-        Executed { proposal_id: u64 },
+        Approved {
+            proposal_id: u64,
+            approver: T::AccountId,
+            approvals: u32,
+        },
+        Executed {
+            proposal_id: u64,
+        },
     }
 
     #[pallet::error]
@@ -108,7 +113,10 @@ pub mod pallet {
             amount: Amount,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            ensure!(T::CouncilMembers::contains(&who), Error::<T>::NotCouncilMember);
+            ensure!(
+                T::CouncilMembers::contains(&who),
+                Error::<T>::NotCouncilMember
+            );
             let proposal_id = NextProposalId::<T>::mutate(|n| {
                 let id = *n;
                 *n = n.saturating_add(1);
@@ -146,13 +154,19 @@ pub mod pallet {
         #[pallet::weight(T::WeightInfo::execute_spend())]
         pub fn execute_spend(origin: OriginFor<T>, proposal_id: u64) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            ensure!(T::CouncilMembers::contains(&who), Error::<T>::NotCouncilMember);
+            ensure!(
+                T::CouncilMembers::contains(&who),
+                Error::<T>::NotCouncilMember
+            );
             let threshold = Threshold::<T>::get();
             ensure!(threshold > 0, Error::<T>::ThresholdNotSet);
             Proposals::<T>::try_mutate(proposal_id, |maybe| -> DispatchResult {
                 let p = maybe.as_mut().ok_or(Error::<T>::UnknownProposal)?;
                 ensure!(p.state == ProposalState::Pending, Error::<T>::BadState);
-                ensure!(!p.approvals.iter().any(|a| a == &who), Error::<T>::AlreadyApproved);
+                ensure!(
+                    !p.approvals.iter().any(|a| a == &who),
+                    Error::<T>::AlreadyApproved
+                );
                 p.approvals
                     .try_push(who.clone())
                     .map_err(|_| Error::<T>::TooManyApprovals)?;

@@ -37,8 +37,6 @@ fn empty_oracle_returns_zero() {
 #[test]
 fn signed_origin_rejected() {
     new_test_ext().execute_with(|| {
-        assert!(
-            crate::Pallet::<Test>::submit_price(RuntimeOrigin::signed(1), 1_000_000).is_err()
-        );
+        assert!(crate::Pallet::<Test>::submit_price(RuntimeOrigin::signed(1), 1_000_000).is_err());
     });
 }

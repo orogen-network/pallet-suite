@@ -40,7 +40,9 @@ use frame_support::{
     construct_runtime, derive_impl, parameter_types,
     traits::{ConstU32, ConstU64, ConstU8},
     weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND},
+        constants::{
+            BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_REF_TIME_PER_SECOND,
+        },
         IdentityFee, Weight,
     },
 };
@@ -131,17 +133,18 @@ pub mod opaque {
 
 #[sp_version::runtime_version]
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    spec_name: alloc::borrow::Cow::Borrowed("llm-mining"),
-    impl_name: alloc::borrow::Cow::Borrowed("llm-mining"),
+    // Runtime identity for the Orogen testnet/genesis line. Do not apply this
+    // identity change as a live upgrade over a chain using a different
+    // `spec_name`.
+    spec_name: alloc::borrow::Cow::Borrowed("orogen"),
+    impl_name: alloc::borrow::Cow::Borrowed("orogen"),
     authoring_version: 1,
-    // Bumped from 1 to 2: post-audit refactor of origin gating, weight
-    // info, signed-stake reservation, and removal of unused `Vec<u8>`
-    // parameters on `model-registry`. Extrinsic ABI changed → bump
-    // `transaction_version` as well.
-    spec_version: 2,
+    // Bumped from 5 to 6: Yuma submission authorization now uses governed
+    // top-K permits and epoch aggregation clips scores to operator medians.
+    spec_version: 6,
     impl_version: 1,
     apis: RUNTIME_API_VERSIONS,
-    transaction_version: 2,
+    transaction_version: 6,
     system_version: 1,
 };
 
@@ -256,6 +259,13 @@ impl pallet_timestamp::Config for Runtime {
 
 parameter_types! {
     pub const ExistentialDeposit: Balance = 500;
+    pub const MinOperatorStake: Balance = 1_000_000_000_000;
+    pub const MaxHeartbeatEpochAdvance: u64 = 1;
+    pub const SlashDisputeWindow: BlockNumber = 7_200;
+    pub const MaxYumaValidators: u32 = 64;
+    pub const MaxYumaPermittedValidators: u32 = 64;
+    pub const MaxYumaWeightVectorLen: u32 = 256;
+    pub const MaxYumaEntityStakeBps: u16 = 2_000;
 }
 
 impl pallet_balances::Config for Runtime {
@@ -318,7 +328,9 @@ impl pallet_operator_stake::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type SlashOrigin = EnsureRoot<AccountId>;
-    type WeightInfo = ();
+    type MinStake = MinOperatorStake;
+    type MaxHeartbeatEpochAdvance = MaxHeartbeatEpochAdvance;
+    type WeightInfo = pallet_operator_stake::weights::SubstrateWeight<Runtime>;
 }
 impl pallet_job_market::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -327,7 +339,13 @@ impl pallet_job_market::Config for Runtime {
 }
 impl pallet_yuma_consensus::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
-    type WeightInfo = ();
+    type GovernanceOrigin = EnsureRoot<AccountId>;
+    type MaxValidators = MaxYumaValidators;
+    type MaxPermittedValidators = MaxYumaPermittedValidators;
+    type MaxWeightVectorLen = MaxYumaWeightVectorLen;
+    type MaxEntityStakeBps = MaxYumaEntityStakeBps;
+    type ComputeOrigin = EnsureRoot<AccountId>;
+    type WeightInfo = pallet_yuma_consensus::weights::SubstrateWeight<Runtime>;
 }
 impl pallet_bme::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -340,7 +358,9 @@ impl pallet_slashing::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type EvidenceOrigin = EnsureRoot<AccountId>;
     type PanelOrigin = EnsureRoot<AccountId>;
-    type WeightInfo = ();
+    type WeightInfo = pallet_slashing::weights::SubstrateWeight<Runtime>;
+    type OperatorSlash = OperatorStake;
+    type DisputeWindow = SlashDisputeWindow;
 }
 impl pallet_pouw_mint::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -360,7 +380,7 @@ impl pallet_oracle_twap::Config for Runtime {
 impl pallet_nonce_vault::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
     type GatewayOrigin = EnsureRoot<AccountId>;
-    type WeightInfo = ();
+    type WeightInfo = pallet_nonce_vault::weights::SubstrateWeight<Runtime>;
 }
 impl pallet_treasury_ext::Config for Runtime {
     type RuntimeEvent = RuntimeEvent;
@@ -621,4 +641,3 @@ impl_runtime_apis! {
         }
     }
 }
-

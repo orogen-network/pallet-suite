@@ -21,8 +21,7 @@ impl<T: Config> WeightInfo for SubstrateWeight<T> {
             .saturating_add(T::DbWeight::get().writes(1))
     }
     fn emit_pouw_reward() -> Weight {
-        Weight::from_parts(20_000_000, 1024)
-            .saturating_add(T::DbWeight::get().reads(1))
+        Weight::from_parts(20_000_000, 1024).saturating_add(T::DbWeight::get().reads(1))
     }
 }
 

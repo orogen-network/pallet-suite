@@ -28,11 +28,7 @@ fn duplicate_registration_fails() {
             manifest,
         ));
         assert_noop!(
-            crate::Pallet::<Test>::register_base_model(
-                RuntimeOrigin::signed(1),
-                id,
-                manifest,
-            ),
+            crate::Pallet::<Test>::register_base_model(RuntimeOrigin::signed(1), id, manifest,),
             Error::<Test>::AlreadyRegistered
         );
     });

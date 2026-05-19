@@ -31,11 +31,13 @@ pub mod pallet {
     /// How many expired nonces to evict per block during the on-initialize
     /// pruning sweep. Bounds the work done per block.
     pub const PRUNE_BATCH_PER_BLOCK: u32 = 64;
+    /// Hard cap on entries inspected per block, including live entries. This
+    /// prevents an underweighted full-map scan when the map is mostly live.
+    pub const PRUNE_SCAN_LIMIT_PER_BLOCK: u32 = 256;
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        type RuntimeEvent: From<Event<Self>>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// Origin permitted to record nonces (the gateway pallet's verified
         /// origin or `EnsureRoot` in dev).
         type GatewayOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -68,11 +70,13 @@ pub mod pallet {
         fn on_initialize(now: BlockNumberFor<T>) -> Weight {
             let window: BlockNumberFor<T> = REPLAY_WINDOW_BLOCKS.saturated_into();
             let mut pruned = 0u32;
+            let mut scanned = 0u32;
             let mut to_remove: sp_std::vec::Vec<H256> = sp_std::vec::Vec::new();
             for (k, recorded_at) in Nonces::<T>::iter() {
-                if pruned >= PRUNE_BATCH_PER_BLOCK {
+                if pruned >= PRUNE_BATCH_PER_BLOCK || scanned >= PRUNE_SCAN_LIMIT_PER_BLOCK {
                     break;
                 }
+                scanned = scanned.saturating_add(1);
                 if Saturating::saturating_sub(now, recorded_at) >= window {
                     to_remove.push(k);
                     pruned += 1;
@@ -84,10 +88,7 @@ pub mod pallet {
             if pruned > 0 {
                 Self::deposit_event(Event::NoncesPruned { count: pruned });
             }
-            T::DbWeight::get().reads_writes(
-                (pruned as u64).saturating_add(1),
-                pruned as u64,
-            )
+            T::DbWeight::get().reads_writes((scanned as u64).saturating_add(1), pruned as u64)
         }
     }
 

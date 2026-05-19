@@ -31,8 +31,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        type RuntimeEvent: From<Event<Self>>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// Origin permitted to submit verified burn receipts (verified gateways,
         /// typically a `EnsureSignedBy<Gateways>` set or `EnsureRoot`).
         type GatewayOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -66,17 +65,31 @@ pub mod pallet {
     pub type OperatorBalance<T: Config> =
         StorageMap<_, Blake2_128Concat, T::AccountId, TokenAmount, ValueQuery>;
 
+    /// Burn receipt batch ids already accepted by this runtime.
+    #[pallet::storage]
+    pub type ProcessedBurnBatches<T: Config> =
+        StorageMap<_, Blake2_128Concat, H256, (), OptionQuery>;
+
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        BurnSubmitted { amount: TokenAmount, batch_id: H256 },
-        Minted { operator: T::AccountId, amount: TokenAmount },
-        ElasticitySet { elasticity_bps: u32 },
+        BurnSubmitted {
+            amount: TokenAmount,
+            batch_id: H256,
+        },
+        Minted {
+            operator: T::AccountId,
+            amount: TokenAmount,
+        },
+        ElasticitySet {
+            elasticity_bps: u32,
+        },
     }
 
     #[pallet::error]
     pub enum Error<T> {
         ZeroBurn,
+        DuplicateBurnBatch,
         MintExceedsHeadroom,
         ArithmeticOverflow,
     }
@@ -97,11 +110,13 @@ pub mod pallet {
         ) -> DispatchResult {
             T::GatewayOrigin::ensure_origin(origin)?;
             ensure!(amount > 0, Error::<T>::ZeroBurn);
+            ensure!(
+                !ProcessedBurnBatches::<T>::contains_key(batch_id),
+                Error::<T>::DuplicateBurnBatch
+            );
+            ProcessedBurnBatches::<T>::insert(batch_id, ());
             CumulativeBurn::<T>::mutate(|v| *v = v.saturating_add(amount));
-            Self::deposit_event(Event::BurnSubmitted {
-                amount,
-                batch_id,
-            });
+            Self::deposit_event(Event::BurnSubmitted { amount, batch_id });
             Ok(())
         }
 
@@ -118,21 +133,9 @@ pub mod pallet {
             amount: TokenAmount,
         ) -> DispatchResult {
             T::MintOrigin::ensure_origin(origin)?;
-            // Headroom check: cumulative mint ≤ cumulative burn × elasticity / 10_000.
-            // No more `× 2` magic factor; no saturating arithmetic on the cap.
-            let burn = CumulativeBurn::<T>::get();
-            let mint = CumulativeMint::<T>::get();
-            let elasticity = Elasticity::<T>::get().max(1) as u128;
-            let cap = burn
-                .checked_mul(elasticity)
-                .ok_or(Error::<T>::ArithmeticOverflow)?
-                / 10_000;
-            let new_total = mint
-                .checked_add(amount)
-                .ok_or(Error::<T>::ArithmeticOverflow)?;
-            ensure!(new_total <= cap, Error::<T>::MintExceedsHeadroom);
+            Self::checked_mint_headroom(amount)?;
             OperatorBalance::<T>::mutate(&operator, |b| *b = b.saturating_add(amount));
-            CumulativeMint::<T>::put(new_total);
+            CumulativeMint::<T>::mutate(|v| *v = v.saturating_add(amount));
             Self::deposit_event(Event::Minted { operator, amount });
             Ok(())
         }
@@ -152,10 +155,30 @@ pub mod pallet {
     /// Internal-only — not callable as a dispatchable. Reachable from in-runtime
     /// callers (e.g. `pallet-job-market::finalize_batch`) once wired up.
     impl<T: Config> Pallet<T> {
+        fn checked_mint_headroom(additional: TokenAmount) -> DispatchResult {
+            let burn = CumulativeBurn::<T>::get();
+            let mint = CumulativeMint::<T>::get();
+            let elasticity = Elasticity::<T>::get().max(1) as u128;
+            let cap = burn
+                .checked_mul(elasticity)
+                .ok_or(Error::<T>::ArithmeticOverflow)?
+                / 10_000;
+            let new_total = mint
+                .checked_add(additional)
+                .ok_or(Error::<T>::ArithmeticOverflow)?;
+            ensure!(new_total <= cap, Error::<T>::MintExceedsHeadroom);
+            Ok(())
+        }
+
         pub fn mint_batch(
             _caller: T::AccountId,
             summaries: Vec<(T::AccountId, TokenAmount)>,
         ) -> DispatchResult {
+            let total = summaries.iter().try_fold(0u128, |acc, (_, amount)| {
+                acc.checked_add(*amount)
+                    .ok_or(Error::<T>::ArithmeticOverflow)
+            })?;
+            Self::checked_mint_headroom(total)?;
             for (operator, amount) in summaries {
                 OperatorBalance::<T>::mutate(&operator, |b| *b = b.saturating_add(amount));
                 CumulativeMint::<T>::mutate(|v| *v = v.saturating_add(amount));

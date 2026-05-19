@@ -2680,6 +2680,8 @@ version = "0.1.0"
 dependencies = [
  "frame-support",
  "frame-system",
+ "pallet-balances",
+ "pallet-operator-stake",
  "parity-scale-codec",
  "scale-info",
  "sp-core",

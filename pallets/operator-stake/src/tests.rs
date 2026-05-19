@@ -32,12 +32,53 @@ fn double_register_fails() {
             H256::repeat_byte(1),
         ));
         assert_noop!(
-            crate::Pallet::<Test>::register(
-                RuntimeOrigin::signed(1),
-                100,
-                H256::repeat_byte(1),
-            ),
+            crate::Pallet::<Test>::register(RuntimeOrigin::signed(1), 100, H256::repeat_byte(1),),
             Error::<Test>::AlreadyRegistered
+        );
+    });
+}
+
+#[test]
+fn register_requires_minimum_stake() {
+    new_test_ext().execute_with(|| {
+        assert_noop!(
+            crate::Pallet::<Test>::register(RuntimeOrigin::signed(1), 99, H256::repeat_byte(1),),
+            Error::<Test>::InsufficientStake
+        );
+    });
+}
+
+#[test]
+fn heartbeat_must_be_monotonic_and_bounded() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(crate::Pallet::<Test>::register(
+            RuntimeOrigin::signed(1),
+            100,
+            H256::repeat_byte(1),
+        ));
+        assert_ok!(crate::Pallet::<Test>::heartbeat(
+            RuntimeOrigin::signed(1),
+            10,
+            H256::repeat_byte(2),
+            H256::repeat_byte(3),
+        ));
+        assert_noop!(
+            crate::Pallet::<Test>::heartbeat(
+                RuntimeOrigin::signed(1),
+                9,
+                H256::repeat_byte(2),
+                H256::repeat_byte(3),
+            ),
+            Error::<Test>::HeartbeatEpochStale
+        );
+        assert_noop!(
+            crate::Pallet::<Test>::heartbeat(
+                RuntimeOrigin::signed(1),
+                111,
+                H256::repeat_byte(2),
+                H256::repeat_byte(3),
+            ),
+            Error::<Test>::HeartbeatEpochTooFarAhead
         );
     });
 }
@@ -53,7 +94,68 @@ fn slash_requires_root_origin() {
         // Signed origin must be rejected.
         assert!(crate::Pallet::<Test>::slash(RuntimeOrigin::signed(99), 1, 10, 0).is_err());
         // Root succeeds.
-        assert_ok!(crate::Pallet::<Test>::slash(RuntimeOrigin::root(), 1, 10, 0));
+        assert_ok!(crate::Pallet::<Test>::slash(
+            RuntimeOrigin::root(),
+            1,
+            10,
+            0
+        ));
         assert_eq!(Operators::<Test>::get(1).unwrap().stake, 90);
+    });
+}
+
+#[test]
+fn frozen_operator_cannot_exit_or_heartbeat() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(crate::Pallet::<Test>::register(
+            RuntimeOrigin::signed(1),
+            100,
+            H256::repeat_byte(1),
+        ));
+        assert_ok!(crate::Pallet::<Test>::freeze_operator(&1));
+        assert_noop!(
+            crate::Pallet::<Test>::unregister(RuntimeOrigin::signed(1)),
+            Error::<Test>::Frozen
+        );
+        assert_noop!(
+            crate::Pallet::<Test>::heartbeat(
+                RuntimeOrigin::signed(1),
+                1,
+                H256::repeat_byte(2),
+                H256::repeat_byte(3),
+            ),
+            Error::<Test>::Frozen
+        );
+    });
+}
+
+#[test]
+fn multiple_pending_freezes_require_multiple_releases() {
+    new_test_ext().execute_with(|| {
+        assert_ok!(crate::Pallet::<Test>::register(
+            RuntimeOrigin::signed(1),
+            100,
+            H256::repeat_byte(1),
+        ));
+        assert_ok!(crate::Pallet::<Test>::freeze_operator(&1));
+        assert_ok!(crate::Pallet::<Test>::freeze_operator(&1));
+        let op = Operators::<Test>::get(1).unwrap();
+        assert!(op.frozen);
+        assert_eq!(op.pending_freezes, 2);
+
+        assert_ok!(crate::Pallet::<Test>::unfreeze_operator(&1));
+        let op = Operators::<Test>::get(1).unwrap();
+        assert!(op.frozen);
+        assert_eq!(op.pending_freezes, 1);
+        assert_noop!(
+            crate::Pallet::<Test>::unregister(RuntimeOrigin::signed(1)),
+            Error::<Test>::Frozen
+        );
+
+        assert_ok!(crate::Pallet::<Test>::slash_operator_by_bps(&1, 1_000, 42));
+        let op = Operators::<Test>::get(1).unwrap();
+        assert!(!op.frozen);
+        assert_eq!(op.pending_freezes, 0);
+        assert_eq!(op.stake, 90);
     });
 }

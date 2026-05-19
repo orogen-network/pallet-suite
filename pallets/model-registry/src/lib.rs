@@ -38,8 +38,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config {
         /// Aggregated event type of the runtime.
-        type RuntimeEvent: From<Event<Self>>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// Weight info.
         type WeightInfo: WeightInfo;
     }
@@ -77,9 +76,18 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        BaseModelRegistered { id: H256, owner: T::AccountId },
-        AdapterRegistered { id: H256, base_model_id: H256, owner: T::AccountId },
-        Deprecated { id: H256 },
+        BaseModelRegistered {
+            id: H256,
+            owner: T::AccountId,
+        },
+        AdapterRegistered {
+            id: H256,
+            base_model_id: H256,
+            owner: T::AccountId,
+        },
+        Deprecated {
+            id: H256,
+        },
     }
 
     #[pallet::error]
@@ -104,7 +112,10 @@ pub mod pallet {
             manifest_hash: H256,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            ensure!(!BaseModels::<T>::contains_key(id), Error::<T>::AlreadyRegistered);
+            ensure!(
+                !BaseModels::<T>::contains_key(id),
+                Error::<T>::AlreadyRegistered
+            );
             // Disallow id collision with an existing adapter.
             ensure!(!Adapters::<T>::contains_key(id), Error::<T>::IdCollision);
             let block = frame_system::Pallet::<T>::block_number();
@@ -131,8 +142,14 @@ pub mod pallet {
             manifest_hash: H256,
         ) -> DispatchResult {
             let who = ensure_signed(origin)?;
-            ensure!(BaseModels::<T>::contains_key(base_model_id), Error::<T>::UnknownModel);
-            ensure!(!Adapters::<T>::contains_key(id), Error::<T>::AlreadyRegistered);
+            ensure!(
+                BaseModels::<T>::contains_key(base_model_id),
+                Error::<T>::UnknownModel
+            );
+            ensure!(
+                !Adapters::<T>::contains_key(id),
+                Error::<T>::AlreadyRegistered
+            );
             // Disallow id collision with an existing base model.
             ensure!(!BaseModels::<T>::contains_key(id), Error::<T>::IdCollision);
             let block = frame_system::Pallet::<T>::block_number();

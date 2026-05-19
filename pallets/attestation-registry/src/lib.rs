@@ -25,7 +25,18 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use sp_core::H256;
 
-    #[derive(Clone, Copy, Encode, Decode, DecodeWithMemTracking, MaxEncodedLen, TypeInfo, PartialEq, Eq, Debug)]
+    #[derive(
+        Clone,
+        Copy,
+        Encode,
+        Decode,
+        DecodeWithMemTracking,
+        MaxEncodedLen,
+        TypeInfo,
+        PartialEq,
+        Eq,
+        Debug,
+    )]
     pub enum CrlKind {
         FirmwareHash,
         DeviceCert,
@@ -47,8 +58,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        type RuntimeEvent: From<Event<Self>>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// Origin permitted to revoke attestations and manage CRL entries
         /// (typically `EnsureRoot` or a registry-admin multisig).
         type AdminOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -61,8 +71,7 @@ pub mod pallet {
 
     /// Active attestations keyed by `report_hash`.
     #[pallet::storage]
-    pub type Attestations<T: Config> =
-        StorageMap<_, Blake2_128Concat, H256, OnChainAttestation<T>>;
+    pub type Attestations<T: Config> = StorageMap<_, Blake2_128Concat, H256, OnChainAttestation<T>>;
 
     /// CRL: (kind, target) → block_number at which entry was added.
     #[pallet::storage]
@@ -72,9 +81,17 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        Submitted { operator: T::AccountId, report_hash: H256 },
-        Revoked { report_hash: H256 },
-        CrlAdded { kind: CrlKind, target: H256 },
+        Submitted {
+            operator: T::AccountId,
+            report_hash: H256,
+        },
+        Revoked {
+            report_hash: H256,
+        },
+        CrlAdded {
+            kind: CrlKind,
+            target: H256,
+        },
     }
 
     #[pallet::error]
@@ -112,7 +129,10 @@ pub mod pallet {
                     revoked: false,
                 },
             );
-            Self::deposit_event(Event::Submitted { operator: who, report_hash });
+            Self::deposit_event(Event::Submitted {
+                operator: who,
+                report_hash,
+            });
             Ok(())
         }
 
@@ -133,11 +153,7 @@ pub mod pallet {
         /// Add an entry to the certificate revocation list. Admin-gated.
         #[pallet::call_index(2)]
         #[pallet::weight(T::WeightInfo::add_to_crl())]
-        pub fn add_to_crl(
-            origin: OriginFor<T>,
-            kind: CrlKind,
-            target: H256,
-        ) -> DispatchResult {
+        pub fn add_to_crl(origin: OriginFor<T>, kind: CrlKind, target: H256) -> DispatchResult {
             T::AdminOrigin::ensure_origin(origin)?;
             let now = frame_system::Pallet::<T>::block_number();
             Crl::<T>::insert(kind, target, now);

@@ -26,8 +26,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        type RuntimeEvent: From<Event<Self>>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// Origin permitted to emit PoUW reward events (until Q4 2028,
         /// typically `EnsureRoot`).
         type PoUWRewardOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -55,8 +54,14 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        TranscriptSubmitted { operator: T::AccountId, hash: H256 },
-        PouwRewardEmitted { operator: T::AccountId, amount: u128 },
+        TranscriptSubmitted {
+            operator: T::AccountId,
+            hash: H256,
+        },
+        PouwRewardEmitted {
+            operator: T::AccountId,
+            amount: u128,
+        },
     }
 
     #[pallet::error]

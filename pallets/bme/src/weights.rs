@@ -27,8 +27,7 @@ impl<T: Config> WeightInfo for SubstrateWeight<T> {
             .saturating_add(T::DbWeight::get().writes(2))
     }
     fn set_elasticity() -> Weight {
-        Weight::from_parts(20_000_000, 1024)
-            .saturating_add(T::DbWeight::get().writes(1))
+        Weight::from_parts(20_000_000, 1024).saturating_add(T::DbWeight::get().writes(1))
     }
 }
 

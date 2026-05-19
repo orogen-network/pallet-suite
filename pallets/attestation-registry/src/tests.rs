@@ -29,7 +29,10 @@ fn submit_and_revoke_works() {
 fn crl_lookup_works() {
     new_test_ext().execute_with(|| {
         let target = H256::repeat_byte(9);
-        assert!(!crate::Pallet::<Test>::is_revoked(CrlKind::FirmwareHash, target));
+        assert!(!crate::Pallet::<Test>::is_revoked(
+            CrlKind::FirmwareHash,
+            target
+        ));
         // Signed cannot add to CRL.
         assert!(crate::Pallet::<Test>::add_to_crl(
             RuntimeOrigin::signed(1),
@@ -43,6 +46,9 @@ fn crl_lookup_works() {
             CrlKind::FirmwareHash,
             target,
         ));
-        assert!(crate::Pallet::<Test>::is_revoked(CrlKind::FirmwareHash, target));
+        assert!(crate::Pallet::<Test>::is_revoked(
+            CrlKind::FirmwareHash,
+            target
+        ));
     });
 }

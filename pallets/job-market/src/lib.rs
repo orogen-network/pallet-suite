@@ -26,8 +26,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        type RuntimeEvent: From<Event<Self>>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// Origin permitted to drive `assign`/`finalize` transitions
         /// (typically the gateway pallet's verified origin or `EnsureRoot`).
         type GatewayOrigin: EnsureOrigin<Self::RuntimeOrigin>;
@@ -64,10 +63,20 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        JobSubmitted { job_id: H256, customer: T::AccountId },
-        JobAssigned { job_id: H256, operator: T::AccountId },
-        JobFinalized { job_id: H256 },
-        JobDisputed { job_id: H256 },
+        JobSubmitted {
+            job_id: H256,
+            customer: T::AccountId,
+        },
+        JobAssigned {
+            job_id: H256,
+            operator: T::AccountId,
+        },
+        JobFinalized {
+            job_id: H256,
+        },
+        JobDisputed {
+            job_id: H256,
+        },
     }
 
     #[pallet::error]
@@ -104,7 +113,10 @@ pub mod pallet {
                     created_at: block,
                 },
             );
-            Self::deposit_event(Event::JobSubmitted { job_id, customer: who });
+            Self::deposit_event(Event::JobSubmitted {
+                job_id,
+                customer: who,
+            });
             Ok(())
         }
 

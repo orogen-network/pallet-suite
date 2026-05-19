@@ -31,8 +31,7 @@ pub mod pallet {
 
     #[pallet::config]
     pub trait Config: frame_system::Config {
-        type RuntimeEvent: From<Event<Self>>
-            + IsType<<Self as frame_system::Config>::RuntimeEvent>;
+        type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
         /// Origin allowed to submit prices (oracle reporter set). Restricting
         /// this prevents any signed account from dominating the TWAP.
         type ReporterOrigin: EnsureOrigin<Self::RuntimeOrigin>;

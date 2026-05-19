@@ -1,5 +1,6 @@
 use crate as pallet_yuma_consensus;
 use frame_support::derive_impl;
+use frame_system::EnsureRoot;
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
@@ -18,6 +19,12 @@ impl frame_system::Config for Test {
 
 impl pallet_yuma_consensus::Config for Test {
     type RuntimeEvent = RuntimeEvent;
+    type GovernanceOrigin = EnsureRoot<u64>;
+    type MaxValidators = frame_support::traits::ConstU32<3>;
+    type MaxPermittedValidators = frame_support::traits::ConstU32<2>;
+    type MaxWeightVectorLen = frame_support::traits::ConstU32<4>;
+    type MaxEntityStakeBps = frame_support::traits::ConstU16<6_000>;
+    type ComputeOrigin = EnsureRoot<u64>;
     type WeightInfo = ();
 }
 

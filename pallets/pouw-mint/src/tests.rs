@@ -33,8 +33,6 @@ fn pouw_reward_disabled_at_tge() {
 #[test]
 fn pouw_reward_rejects_signed_origin() {
     new_test_ext().execute_with(|| {
-        assert!(
-            crate::Pallet::<Test>::emit_pouw_reward(RuntimeOrigin::signed(1), 9, 100).is_err()
-        );
+        assert!(crate::Pallet::<Test>::emit_pouw_reward(RuntimeOrigin::signed(1), 9, 100).is_err());
     });
 }

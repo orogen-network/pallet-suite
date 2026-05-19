@@ -1,11 +1,16 @@
 use crate as pallet_operator_stake;
-use frame_support::derive_impl;
+use frame_support::{derive_impl, parameter_types};
 use frame_system::EnsureRoot;
 use sp_runtime::BuildStorage;
 
 type Block = frame_system::mocking::MockBlock<Test>;
 pub type AccountId = u64;
 pub type Balance = u128;
+
+parameter_types! {
+    pub const MinOperatorStake: Balance = 100;
+    pub const MaxHeartbeatEpochAdvance: u64 = 100;
+}
 
 frame_support::construct_runtime!(
     pub enum Test {
@@ -31,6 +36,8 @@ impl pallet_operator_stake::Config for Test {
     type RuntimeEvent = RuntimeEvent;
     type Currency = Balances;
     type SlashOrigin = EnsureRoot<AccountId>;
+    type MinStake = MinOperatorStake;
+    type MaxHeartbeatEpochAdvance = MaxHeartbeatEpochAdvance;
     type WeightInfo = ();
 }
 

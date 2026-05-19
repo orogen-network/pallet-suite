@@ -41,7 +41,10 @@ fn dispute_moves_state_for_customer() {
             Error::<Test>::NotAuthorized
         );
         // Customer can.
-        assert_ok!(crate::Pallet::<Test>::dispute(RuntimeOrigin::signed(1), jid));
+        assert_ok!(crate::Pallet::<Test>::dispute(
+            RuntimeOrigin::signed(1),
+            jid
+        ));
         assert_eq!(Jobs::<Test>::get(jid).unwrap().state, JobState::Disputed);
     });
 }
